@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FDev GTA: Valencia</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+        body {
+            background-color: #0b0c10;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            padding: 10px;
+            overflow-x: hidden;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        #gameLogo { text-align: center; margin-bottom: 10px; text-transform: uppercase; }
+        #logoGta {
+            font-family: 'Impact', 'Arial Black', sans-serif;
+            font-size: clamp(24px, 5vw, 42px);
+            color: #ffffff;
+            letter-spacing: 5px;
+            line-height: 0.9;
+            text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+        }
+        #logoSubtitle {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            font-style: italic;
+            font-weight: bold;
+            font-size: clamp(20px, 4vw, 36px);
+            color: #ff9f43;
+            text-transform: none;
+            letter-spacing: 2px;
+            margin-top: -2px;
+            text-shadow: 0 0 5px #ff6b6b, 0 0 10px #ff9f43;
+        }
+
+        #gameWrapper { width: 100%; max-width: 900px; display: flex; flex-direction: column; position: relative; }
+
+        #hud {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 8px;
+            background: #1f2833;
+            padding: 10px;
+            border: 3px solid #45f3ff;
+            border-bottom: none;
+            font-weight: bold;
+            font-size: clamp(11px, 2.5vw, 14px);
+            text-align: center;
+        }
+        #healthContainer { display: flex; align-items: center; justify-content: center; gap: 5px; }
+        #healthBarBg { width: 70px; height: 12px; background: #c0392b; border: 1px solid #fff; }
+        #healthBar { width: 100%; height: 100%; background: #2ecc71; transition: width 0.1s ease; }
+        #score { color: #2ecc71; }
+        #ammo { color: #f1c40f; }
+        #starsContainer { display: flex; justify-content: center; gap: 2px; }
+        .star { font-size: 16px; }
+        .star.off { color: rgba(255, 255, 255, 0.2); }
+        .star.on { color: #f1c40f; text-shadow: 0 0 8px #f1c40f; animation: pulseStar 0.6s infinite alternate; }
+        @keyframes pulseStar { 0% { transform: scale(1); } 100% { transform: scale(1.2); } }
+
+        #canvasContainer { position: relative; width: 100%; aspect-ratio: 900 / 675; background-color: #1a1a24; }
+        canvas { width: 100%; height: 100%; border: 4px solid #45f3ff; display: block; }
+
+        #wastedScreen, #startScreen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            padding: 20px;
+            text-align: center;
+        }
+        #wastedScreen { display: none; background: rgba(139, 0, 0, 0.4) radial-gradient(circle, rgba(0,0,0,0.9) 30%, rgba(0,0,0,0.95) 100%); border: 4px solid #45f3ff; }
+        #wastedText { font-size: clamp(35px, 8vw, 75px); font-weight: bold; color: #e74c3c; letter-spacing: 6px; font-style: italic; text-shadow: 0 0 20px #000; }
+        #wastedSubtext { margin-top: 10px; font-size: clamp(12px, 3vw, 16px); color: #ccc; }
+        
+        /* MODIFICADO: background-size cambiado a 100% 100% para amoldar la imagen sin recortes */
+        #startScreen { 
+            background: linear-gradient(rgba(11, 12, 16, 0.75), rgba(11, 12, 16, 0.75)), url('bg.png') no-repeat center center !important; 
+            background-size: 100% 100% !important;
+            border: 4px solid #45f3ff;
+            opacity: 1;
+            visibility: visible;
+            z-index: 30; 
+            box-sizing: border-box;
+        }
+        #startButton {
+            padding: 12px 28px;
+            font-size: clamp(16px, 4vw, 22px);
+            font-weight: bold;
+            background: #45f3ff;
+            color: #0b0c10;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 15px #45f3ff;
+            font-family: inherit;
+        }
+        #startButton:hover { background: #fff; box-shadow: 0 0 25px #fff; }
+
+        #mobileControls { display: none; width: 100%; max-width: 900px; justify-content: space-between; align-items: center; padding: 15px 10px; gap: 20px; }
+        #joystickContainer { width: 120px; height: 120px; background: rgba(255, 255, 255, 0.1); border: 3px solid rgba(69, 243, 255, 0.4); border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; }
+        #joystickKnob { width: 50px; height: 50px; background: #45f3ff; border-radius: 50%; position: absolute; box-shadow: 0 0 10px #45f3ff; }
+        #actionButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .mobileBtn { width: 65px; height: 65px; border-radius: 50%; border: 3px solid #45f3ff; font-weight: bold; font-size: 16px; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 0 10px rgba(69, 243, 255, 0.3); }
+        #btnShoot { background: rgba(231, 76, 60, 0.6); border-color: #e74c3c; }
+        #btnAction { background: rgba(241, 196, 15, 0.6); border-color: #f1c40f; }
+        
+        .instructions { margin-top: 12px; font-size: 12px; color: #6674cc; text-align: center; max-width: 900px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <div id="gameLogo">
+        <div id="logoGta">GRAND THEFT AUTO</div>
+        <div id="logoSubtitle">Valencia</div>
+    </div>
+
+    <div id="gameWrapper">
+        <div id="hud">
+            <div>PASTA: <span id="score">$000000</span></div>
+            <div>BALAS: <span id="ammo">30</span></div>
+            <div id="healthContainer">
+                <span>VIDA:</span>
+                <div id="healthBarBg"><div id="healthBar"></div></div>
+            </div>
+            <div>ESTADO: <span id="playerState" style="color:#f1c40f;">EN COCHE</span></div>
+            <div>
+                <div id="starsContainer">
+                    <span class="star off">★</span><span class="star off">★</span><span class="star off">★</span><span class="star off">★</span><span class="star off">★</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="canvasContainer">
+            <canvas id="gameCanvas" width="900" height="675"></canvas>
+            
+            <div id="wastedScreen">
+                <div id="wastedText">ELIMINADO</div>
+                <div id="wastedSubtext">Has acabado en urgencias. Fianza cobrada y armas requisadas.</div>
+            </div>
+
+            <div id="startScreen">
+                <h1 style="color:#45f3ff; margin-bottom:10px; letter-spacing:4px; font-size: clamp(22px, 6vw, 36px); text-shadow: 2px 2px 4px #000">GRAND THEFT AUTO</h1>
+                <h2 style="color:#f1c40f; margin-bottom:30px; letter-spacing:6px; font-size: clamp(16px, 4vw, 24px); text-shadow: 2px 2px 4px #000">VALENCIA</h2>
+                <button id="startButton" onclick="initGame()">INICIAR ACCIÓN</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mobileControls">
+        <div id="joystickContainer">
+            <div id="joystickKnob"></div>
+        </div>
+        <div id="actionButtons">
+            <div class="mobileBtn" id="btnAction">F</div>
+            <div class="mobileBtn" id="btnShoot">PUM</div>
+        </div>
+    </div>
+
+    <div class="instructions" id="desktopInstructions">
+        <strong>PC:</strong> WASD / Flechas (Moverse) | <strong>Click Izquierdo:</strong> Disparar | <strong>F o Enter:</strong> Subir/Bajar del coche <br>
+        <strong>Zonas:</strong> <span style="color:#2ecc71;">[F]</span> Refugio | <span style="color:#e74c3c;">[H]</span> Hospital | <span style="color:#95a5a6;">[B]</span> Ammu-Nation ($500) | <span style="color:#3498db;">[P]</span> Comisaría
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const CANVAS_W = 900;
+        const CANVAS_H = 675;
+        const WORLD = { width: 4800, height: 3600 }; 
+        
+        let score = 0; let health = 100; let ammo = 30; 
+        let wantedLevel = 0; let crimesCommitted = 0; 
+        let isWasted = false; let gameStarted = false;
+
+        const camera = { x: 0, y: 0 };
+        const keys = {};
+        const mouse = { x: 0, y: 0, worldX: 0, worldY: 0, isDown: false };
+
+        let isTouchDevice = false;
+        const joystick = { active: false, startX: 0, startY: 0, moveX: 0, moveY: 0, dirX: 0, dirY: 0 };
+
+        const player = { x: 1250, y: 950, width: 18, height: 18, angle: 0, speed: 3.5, inVehicle: true };
+        const car = {
+            x: 1200, y: 900, width: 26, height: 48, angle: 0, speed: 0, 
+            maxSpeed: 8.5, backSpeed: -4.0, acc: 0.24, friction: 0.07, turnSpeed: 0.052
+        };
+
+        const safeHouse = { x: 2200, y: 1600, width: 140, height: 140 }; 
+        const hospital = { x: 3800, y: 2800, width: 150, height: 150 };  
+        const policeStation = { x: 2400, y: 500, width: 180, height: 180 }; 
+        const ammuNation = { x: 400, y: 3000, width: 140, height: 140 }; 
+
+        const buildings = []; const peds = []; let policeCars = []; let bullets = []; let policeBullets = [];  
+        let shootTimer = 0; let damageCooldown = 0; let purchaseCooldown = 0; 
+
+        const bgMusic = new Audio('ost.mp3');
+        bgMusic.loop = true; bgMusic.volume = 0.15;
+
+        function generateCity() {
+            buildings.length = 0;
+            for (let x = 150; x < WORLD.width - 250; x += 450) {
+                for (let y = 150; y < WORLD.height - 250; y += 400) {
+                    if (Math.abs(x - 1200) < 200 && Math.abs(y - 900) < 200) continue;
+                    if (x + 280 > safeHouse.x && x < safeHouse.x + safeHouse.width && y + 220 > safeHouse.y && y < safeHouse.y + safeHouse.height) continue;
+                    if (x + 280 > hospital.x && x < hospital.x + hospital.width && y + 220 > hospital.y && y < hospital.y + hospital.height) continue;
+                    if (x + 280 > policeStation.x && x < policeStation.x + policeStation.width && y + 220 > policeStation.y && y < policeStation.y + policeStation.height) continue;
+                    if (x + 280 > ammuNation.x && x < ammuNation.x + ammuNation.width && y + 220 > ammuNation.y && y < ammuNation.y + ammuNation.height) continue;
+
+                    buildings.push({ x: x, y: y, w: 280, h: 220 });
+                }
+            }
+        }
+
+        function spawnPed() {
+            let x, y;
+            let attempts = 0;
+            do { 
+                x = Math.random() * WORLD.width; 
+                y = Math.random() * WORLD.height; 
+                attempts++;
+            } while (checkCollision(x, y) && attempts < 20);
+            peds.push({ x: x, y: y, angle: Math.random() * Math.PI * 2, speed: 1.0, changeDirTimer: Math.random() * 100 });
+        }
+
+        function getPoliceConfig() {
+            switch(wantedLevel) {
+                case 1: return { maxCops: 3, speed: 3.5, life: 2, turnSpeed: 0.04, color: '#ffffff', isFBI: false, damage: 10, shootRate: 130 };
+                case 2: return { maxCops: 5, speed: 4.2, life: 3, turnSpeed: 0.05, color: '#ffffff', isFBI: false, damage: 12, shootRate: 100 };
+                case 3: return { maxCops: 8, speed: 4.8, life: 5, turnSpeed: 0.055, color: '#34495e', isFBI: false, damage: 14, shootRate: 85 }; 
+                case 4: return { maxCops: 12, speed: 5.5, life: 7, turnSpeed: 0.065, color: '#2c3e50', isFBI: true, damage: 18, shootRate: 70 };  
+                case 5: return { maxCops: 18, speed: 6.2, life: 10, turnSpeed: 0.075, color: '#111111', isFBI: true, damage: 22, shootRate: 55 }; 
+                default: return { maxCops: 0, speed: 0, life: 0, turnSpeed: 0, color: '#fff', isFBI: false, damage: 0, shootRate: 999 };
+            }
+        }
+
+        function spawnPolice(forceSpawn = false, spawnX = null, spawnY = null) {
+            if (wantedLevel === 0 || isWasted) return;
+            const config = getPoliceConfig();
+            let capMaximo = forceSpawn ? config.maxCops + 3 : config.maxCops;
+            if (policeCars.length >= capMaximo) return;
+
+            let x, y;
+            if (forceSpawn && spawnX !== null && spawnY !== null) {
+                let angle = Math.random() * Math.PI * 2;
+                let dist = 160 + Math.random() * 120;
+                x = spawnX + Math.cos(angle) * dist; y = spawnY + Math.sin(angle) * dist;
+                if (checkCollision(x, y)) return; 
+            } else {
+                let attempts = 0;
+                do {
+                    x = player.x + (Math.random() - 0.5) * 1600;
+                    y = player.y + (Math.random() - 0.5) * 1600;
+                    attempts++;
+                } while ((checkCollision(x, y) || (Math.abs(x - player.x) < 500 && Math.abs(y - player.y) < 400)) && attempts < 25);
+                
+                if (attempts >= 25) return; 
+            }
+
+            policeCars.push({ 
+                x: x, y: y, width: 28, height: 50, angle: 0, speed: config.speed, currentSpeed: config.speed,
+                life: config.life, maxLife: config.life, turnSpeed: config.turnSpeed, color: config.color,
+                isFBI: config.isFBI, damage: config.damage, shootRate: config.shootRate, shootCooldown: Math.random() * 40, slideAngle: (Math.random() > 0.5 ? 0.5 : -0.5)
+            });
+        }
+
+        function reportCrime(points) {
+            if (isWasted) return;
+            crimesCommitted += points;
+            let newWanted = 0;
+            if (crimesCommitted >= 1) newWanted = 1;
+            if (crimesCommitted >= 4) newWanted = 2;
+            if (crimesCommitted >= 10) newWanted = 3;
+            if (crimesCommitted >= 18) newWanted = 4;
+            if (crimesCommitted >= 30) newWanted = 5;
+
+            if (newWanted > wantedLevel) { wantedLevel = newWanted; updateWantedUI(); }
+        }
+
+        const Sprites = {
+            playerCar: null, pedestrian: null, playerPed: null,
+            init() {
+                this.playerCar = document.createElement('canvas'); this.playerCar.width = 32; this.playerCar.height = 54;
+                let c = this.playerCar.getContext('2d');
+                c.fillStyle = '#f1c40f'; c.fillRect(3, 5, 26, 44); 
+                c.fillStyle = '#111'; c.fillRect(0, 8, 4, 11); c.fillRect(28, 8, 4, 11); c.fillRect(0, 35, 4, 11); c.fillRect(28, 35, 4, 11); 
+                c.fillStyle = '#222'; c.fillRect(5, 20, 22, 18); c.fillStyle = '#e74c3c'; c.fillRect(5, 47, 6, 3); c.fillRect(21, 47, 6, 3); 
+
+                this.pedestrian = document.createElement('canvas'); this.pedestrian.width = 18; this.pedestrian.height = 18;
+                c = this.pedestrian.getContext('2d');
+                c.fillStyle = '#2ecc71'; c.beginPath(); c.arc(9, 9, 7, 0, Math.PI*2); c.fill(); 
+                c.fillStyle = '#ffdbac'; c.beginPath(); c.arc(9, 9, 3.5, 0, Math.PI*2); c.fill(); 
+
+                this.playerPed = document.createElement('canvas'); this.playerPed.width = 18; this.playerPed.height = 18;
+                c = this.playerPed.getContext('2d');
+                c.fillStyle = '#3498db'; c.beginPath(); c.arc(9, 9, 7, 0, Math.PI*2); c.fill(); 
+                c.fillStyle = '#ffdbac'; c.beginPath(); c.arc(9, 9, 3.5, 0, Math.PI*2); c.fill(); 
+                c.fillStyle = '#f1c40f'; c.fillRect(12, 2, 3, 5);
+            },
+            drawPoliceElement(ctx, color, isFBI) {
+                ctx.fillStyle = color; ctx.fillRect(-13, -22, 26, 44);
+                ctx.fillStyle = '#111'; ctx.fillRect(-13, -11, 26, 20); 
+                ctx.fillRect(-16, -16, 3, 10); ctx.fillRect(13, -16, 3, 10);
+                ctx.fillRect(-16, 10, 3, 10); ctx.fillRect(13, 10, 3, 10);
+                ctx.fillStyle = (Math.floor(Date.now() / 70) % 2 === 0) ? '#e74c3c' : '#3498db';
+                if (isFBI) { ctx.fillRect(-7, -14, 5, 4); ctx.fillRect(2, -14, 5, 4); } else { ctx.fillRect(-4, -2, 8, 4); }
+            }
+        };
+
+        const AudioEngine = {
+            ctx: null, engineOsc: null, engineGain: null, sirenOsc: null, sirenGain: null,
+            init() {
+                try {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.setupEngineSound(); this.setupSirenSound();
+                } catch(e) { console.log("Audio inhabilitado"); }
+            },
+            setupEngineSound() {
+                if(!this.ctx) return;
+                this.engineOsc = this.ctx.createOscillator(); this.engineGain = this.ctx.createGain();
+                this.engineOsc.type = 'sawtooth'; this.engineOsc.frequency.setValueAtTime(25, this.ctx.currentTime);
+                this.engineGain.gain.setValueAtTime(0.0, this.ctx.currentTime); 
+                this.engineOsc.connect(this.engineGain); this.engineGain.connect(this.ctx.destination);
+                this.engineOsc.start();
+            },
+            updateEngine(speed) {
+                if(!this.ctx || !this.engineOsc) return;
+                let absSpeed = Math.abs(speed);
+                this.engineOsc.frequency.setValueAtTime(25 + (absSpeed * 13), this.ctx.currentTime);
+                this.engineGain.gain.setValueAtTime(gameStarted && !isWasted && player.inVehicle ? 0.015 + (absSpeed * 0.005) : 0, this.ctx.currentTime);
+            },
+            setupSirenSound() {
+                if(!this.ctx) return;
+                this.sirenOsc = this.ctx.createOscillator(); this.sirenGain = this.ctx.createGain();
+                this.sirenOsc.type = 'sine'; this.sirenGain.gain.setValueAtTime(0, this.ctx.currentTime);
+                this.sirenOsc.connect(this.sirenGain); this.sirenGain.connect(this.ctx.destination);
+                this.sirenOsc.start();
+            },
+            updateSiren(hasPoliceNear) {
+                if(!this.ctx || !this.sirenOsc) return;
+                if (hasPoliceNear && wantedLevel > 0 && !isWasted) {
+                    let time = this.ctx.currentTime;
+                    this.sirenOsc.frequency.setValueAtTime(500 + wantedLevel * 40 + Math.sin(time * (6 + wantedLevel * 2)) * 220, time);
+                    this.sirenGain.gain.setValueAtTime(0.04 + (wantedLevel * 0.004), time);
+                } else { this.sirenGain.gain.setValueAtTime(0, this.ctx.currentTime); }
+            },
+            playCrash() {
+                if(!this.ctx) return;
+                let bufferSize = this.ctx.sampleRate * 0.22, buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate), data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+                let noise = this.ctx.createBufferSource(); noise.buffer = buffer;
+                let filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(220, this.ctx.currentTime);
+                let gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.22);
+                noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination); noise.start();
+            },
+            playGunshot() {
+                if(!this.ctx) return;
+                let bufferSize = this.ctx.sampleRate * 0.05, buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate), data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+                let noise = this.ctx.createBufferSource(); noise.buffer = buffer;
+                let gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                noise.connect(gain); gain.connect(this.ctx.destination); noise.start();
+            },
+            playScream() {
+                if(!this.ctx) return;
+                let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(650, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.12, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain); gain.connect(this.ctx.destination); osc.start(); osc.stop(this.ctx.currentTime + 0.12);
+            }
+        };
+
+        window.addEventListener('keydown', e => {
+            keys[e.key.toLowerCase()] = true;
+            if ((e.key.toLowerCase() === 'f' || e.key === 'Enter') && !isWasted && gameStarted) toggleVehicle();
+        });
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        
+        canvas.addEventListener('mousemove', e => {
+            if (isTouchDevice) return; 
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = (e.clientX - rect.left) * (CANVAS_W / rect.width);
+            mouse.y = (e.clientY - rect.top) * (CANVAS_H / rect.height);
+        });
+        canvas.addEventListener('mousedown', e => { if(e.button === 0 && !isTouchDevice) mouse.isDown = true; });
+        canvas.addEventListener('mouseup', e => { if(e.button === 0 && !isTouchDevice) mouse.isDown = false; });
+
+        function setupMobileInput() {
+            if (isTouchDevice) return;
+            isTouchDevice = true;
+            document.getElementById('mobileControls').style.display = 'flex';
+            document.getElementById('desktopInstructions').style.display = 'none';
+
+            const knob = document.getElementById('joystickKnob');
+            const container = document.getElementById('joystickContainer');
+            const maxRadius = 45;
+
+            container.addEventListener('touchstart', e => {
+                joystick.active = true;
+                const t = e.touches[0];
+                const rect = container.getBoundingClientRect();
+                joystick.startX = rect.left + rect.width / 2;
+                joystick.startY = rect.top + rect.height / 2;
+                handleJoystickMove(t);
+            }, {passive: false});
+
+            container.addEventListener('touchmove', e => {
+                if (!joystick.active) return;
+                handleJoystickMove(e.touches[0]);
+                e.preventDefault();
+            }, {passive: false});
+
+            function handleJoystickMove(touch) {
+                let dx = touch.clientX - joystick.startX;
+                let dy = touch.clientY - joystick.startY;
+                let dist = Math.hypot(dx, dy);
+
+                if (dist > maxRadius) { dx = (dx / dist) * maxRadius; dy = (dy / dist) * maxRadius; dist = maxRadius; }
+                knob.style.transform = `translate(${dx}px, ${dy}px)`;
+                joystick.dirX = dx / maxRadius;
+                joystick.dirY = dy / maxRadius;
+            }
+
+            const resetJoystick = () => {
+                joystick.active = false; joystick.dirX = 0; joystick.dirY = 0;
+                knob.style.transform = 'translate(0px, 0px)';
+            };
+            container.addEventListener('touchend', resetJoystick);
+            container.addEventListener('touchcancel', resetJoystick);
+
+            document.getElementById('btnAction').addEventListener('touchstart', e => {
+                e.preventDefault(); if (gameStarted && !isWasted) toggleVehicle();
+            }, {passive: false});
+            document.getElementById('btnShoot').addEventListener('touchstart', e => {
+                e.preventDefault(); mouse.isDown = true;
+            }, {passive: false});
+            document.getElementById('btnShoot').addEventListener('touchend', e => {
+                e.preventDefault(); mouse.isDown = false;
+            }, {passive: false});
+        }
+
+        window.addEventListener('touchstart', function onFirstTouch() {
+            setupMobileInput();
+            window.removeEventListener('touchstart', onFirstTouch);
+        });
+
+        function checkCollision(x, y) {
+            if (x < 20 || x > WORLD.width - 20 || y < 20 || y > WORLD.height - 20) return true;
+            for (let i = 0; i < buildings.length; i++) { 
+                let b = buildings[i];
+                if (x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h) return true; 
+            }
+            return false;
+        }
+
+        function toggleVehicle() {
+            if (player.inVehicle) {
+                player.x = car.x - 28; player.y = car.y;
+                if(!checkCollision(player.x, player.y)) {
+                    player.inVehicle = false; updateStateUI("A PIE", "#3498db");
+                } else {
+                    player.x = car.x + 28;
+                    if(!checkCollision(player.x, player.y)) { player.inVehicle = false; updateStateUI("A PIE", "#3498db"); }
+                }
+            } else {
+                if (Math.hypot(player.x - car.x, player.y - car.y) < 55) {
+                    player.inVehicle = true; updateStateUI("EN COCHE", "#f1c40f");
+                }
+            }
+        }
+
+        function updateStateUI(text, color) {
+            const el = document.getElementById('playerState');
+            el.innerText = text; el.style.color = color;
+        }
+
+        function initGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            gameStarted = true; health = 100; ammo = 30; score = 0; wantedLevel = 0; crimesCommitted = 0;
+            updateHealthUI(); updateWantedUI();
+            document.getElementById('ammo').innerText = ammo;
+            document.getElementById('score').innerText = "$000000";
+            Sprites.init();
+            AudioEngine.init();
+            bgMusic.play().catch(() => console.log("OST Bloqueada"));
+            generateCity();
+            for (let i = 0; i < 60; i++) spawnPed();
+            loop();
+        }
+
+        function updateHealthUI() {
+            const bar = document.getElementById('healthBar'); bar.style.width = health + "%";
+            if (health > 50) bar.style.background = "#2ecc71";
+            else if (health > 22) bar.style.background = "#f1c40f";
+            else bar.style.background = "#e74c3c";
+        }
+
+        function triggerWasted() {
+            isWasted = true; car.speed = 0;
+            AudioEngine.updateEngine(0); AudioEngine.updateSiren(false); AudioEngine.playCrash();
+            bgMusic.pause();
+            document.getElementById('wastedScreen').style.display = 'flex';
+            
+            setTimeout(() => {
+                score = Math.max(0, score - (wantedLevel * 400 + 200));
+                document.getElementById('score').innerText = "$" + String(score).padStart(6, '0');
+                wantedLevel = 0; crimesCommitted = 0; health = 100; ammo = 30;
+                updateWantedUI(); updateHealthUI();
+                document.getElementById('ammo').innerText = ammo;
+                policeCars.length = 0; bullets.length = 0; policeBullets.length = 0;
+                
+                car.x = 1200; car.y = 900; car.angle = 0; car.speed = 0;
+                player.inVehicle = true; updateStateUI("EN COCHE", "#f1c40f");
+                isWasted = false; document.getElementById('wastedScreen').style.display = 'none';
+                bgMusic.play().catch(()=>{});
+            }, 3000);
+        }
+
+        function updateWantedUI() {
+            const stars = document.querySelectorAll('.star');
+            stars.forEach((star, idx) => star.className = idx < wantedLevel ? "star on" : "star off");
+        }
+
+        function checkMapZones(x, y) {
+            if (x >= safeHouse.x && x <= safeHouse.x + safeHouse.width && y >= safeHouse.y && y <= safeHouse.y + safeHouse.height) {
+                if (wantedLevel > 0) {
+                    wantedLevel = 0; crimesCommitted = 0; updateWantedUI();
+                    policeCars.length = 0; policeBullets.length = 0;
+                    if (player.inVehicle) { car.speed = 0; player.x = safeHouse.x + safeHouse.width / 2; player.y = safeHouse.y + safeHouse.height / 2; player.inVehicle = false; }
+                    updateStateUI("REFUGIO", "#2ecc71");
+                }
+            }
+            if (x >= hospital.x && x <= hospital.x + hospital.width && y >= hospital.y && y <= hospital.y + hospital.height) {
+                if (health < 100) { health = 100; updateHealthUI(); }
+            }
+            if (x >= ammuNation.x && x <= ammuNation.x + ammuNation.width && y >= ammuNation.y && y <= ammuNation.y + ammuNation.height) {
+                if (purchaseCooldown === 0 && score >= 500) {
+                    score -= 500; ammo += 50;
+                    document.getElementById('score').innerText = "$" + String(score).padStart(6, '0');
+                    document.getElementById('ammo').innerText = ammo; purchaseCooldown = 40; 
+                }
+            }
+            if (wantedLevel > 0) {
+                let cx = policeStation.x + policeStation.width / 2; let cy = policeStation.y + policeStation.height / 2;
+                if (Math.hypot(x - cx, y - cy) < 350 && Math.random() < 0.08) spawnPolice(true, cx, cy);
+            }
+        }
+
+        function update() {
+            if (isWasted) return;
+            if (purchaseCooldown > 0) purchaseCooldown--;
+
+            let currentPlayerX = player.inVehicle ? car.x : player.x;
+            let currentPlayerY = player.inVehicle ? car.y : player.y;
+
+            if (isTouchDevice && joystick.active) {
+                if (Math.abs(joystick.dirX) > 0.1 || Math.abs(joystick.dirY) > 0.1) {
+                    let targetAngle = Math.atan2(joystick.dirY, joystick.dirX) + Math.PI / 2;
+                    if (!player.inVehicle) player.angle = targetAngle;
+                }
+            } else if (!isTouchDevice) {
+                mouse.worldX = mouse.x + camera.x; mouse.worldY = mouse.y + camera.y;
+                player.angle = Math.atan2(mouse.worldY - currentPlayerY, mouse.worldX - currentPlayerX) + Math.PI/2;
+            }
+
+            if (player.inVehicle) {
+                let forwardInput = 0; let turnInput = 0;
+
+                if (isTouchDevice) {
+                    if (joystick.active) {
+                        if (joystick.dirY < -0.15) forwardInput = 1;  
+                        if (joystick.dirY > 0.2) forwardInput = -1;  
+                        if (joystick.dirX < -0.2) turnInput = -1;    
+                        if (joystick.dirX > 0.2) turnInput = 1;     
+                    }
+                } else {
+                    if (keys['arrowup'] || keys['w']) forwardInput = 1;
+                    if (keys['arrowdown'] || keys['s']) forwardInput = -1;
+                    if (keys['arrowleft'] || keys['a']) turnInput = -1;
+                    if (keys['arrowright'] || keys['d']) turnInput = 1;
+                }
+
+                if (forwardInput === 1) { if (car.speed < car.maxSpeed) car.speed += car.acc; }
+                else if (forwardInput === -1) { if (car.speed > car.backSpeed) car.speed -= car.acc; }
+                else {
+                    if (car.speed > 0) car.speed -= car.friction; else if (car.speed < 0) car.speed += car.friction;
+                    if (Math.abs(car.speed) < car.friction) car.speed = 0;
+                }
+
+                if (car.speed !== 0) {
+                    const actualTurn = car.speed > 0 ? car.turnSpeed : -car.turnSpeed;
+                    if (turnInput === -1) car.angle -= actualTurn;
+                    if (turnInput === 1) car.angle += actualTurn;
+                }
+
+                let nextCarX = car.x + Math.sin(car.angle) * car.speed;
+                let nextCarY = car.y - Math.cos(car.angle) * car.speed;
+
+                if (!checkCollision(nextCarX, nextCarY)) { car.x = nextCarX; car.y = nextCarY; } else {
+                    if(Math.abs(car.speed) > 1.8) {
+                        AudioEngine.playCrash(); health = Math.max(0, health - Math.floor(Math.abs(car.speed) * 0.9)); updateHealthUI();
+                        if(health <= 0) { triggerWasted(); return; }
+                    }
+                    car.speed = -car.speed * 0.35;
+                }
+                AudioEngine.updateEngine(car.speed);
+            } else {
+                let mx = 0; let my = 0;
+                if (isTouchDevice) {
+                    if (joystick.active) { mx = joystick.dirX * player.speed; my = joystick.dirY * player.speed; }
+                } else {
+                    if (keys['arrowup'] || keys['w']) my = -player.speed;
+                    if (keys['arrowdown'] || keys['s']) my = player.speed;
+                    if (keys['arrowleft'] || keys['a']) mx = -player.speed;
+                    if (keys['arrowright'] || keys['d']) mx = player.speed;
+                    if (mx !== 0 && my !== 0) { mx *= 0.707; my *= 0.707; }
+                }
+
+                if (mx !== 0 && !checkCollision(player.x + mx, player.y)) player.x += mx;
+                if (my !== 0 && !checkCollision(player.x, player.y + my)) player.y += my;
+                AudioEngine.updateEngine(0);
+            }
+
+            let activeX = player.inVehicle ? car.x : player.x;
+            let activeY = player.inVehicle ? car.y : player.y;
+
+            checkMapZones(activeX, activeY);
+
+            camera.x = Math.max(0, Math.min(activeX - CANVAS_W / 2, WORLD.width - CANVAS_W));
+            camera.y = Math.max(0, Math.min(activeY - CANVAS_H / 2, WORLD.height - CANVAS_H));
+
+            if (shootTimer > 0) shootTimer--;
+            if (mouse.isDown && shootTimer === 0 && ammo > 0) {
+                AudioEngine.playGunshot();
+                let shootAngle = player.inVehicle ? car.angle - Math.PI/2 : player.angle - Math.PI/2;
+                if (!isTouchDevice) shootAngle = Math.atan2(mouse.worldY - activeY, mouse.worldX - activeX);
+
+                bullets.push({ x: activeX, y: activeY, vx: Math.cos(shootAngle) * 14, vy: Math.sin(shootAngle) * 14, range: 50 });
+                ammo--; document.getElementById('ammo').innerText = ammo; shootTimer = 10;
+            }
+
+            bullets = bullets.filter(b => {
+                b.x += b.vx; b.y += b.vy; b.range--;
+                if (checkCollision(b.x, b.y) || b.range <= 0) return false;
+
+                let hit = false;
+                for (let i = peds.length - 1; i >= 0; i--) {
+                    if (Math.hypot(b.x - peds[i].x, b.y - peds[i].y) < 16) {
+                        peds.splice(i, 1); hit = true;
+                        score += 150; document.getElementById('score').innerText = "$" + String(score).padStart(6, '0');
+                        AudioEngine.playScream(); spawnPed(); reportCrime(1); 
+                        break;
+                    }
+                }
+                if (hit) return false;
+
+                for (let i = policeCars.length - 1; i >= 0; i--) {
+                    let cop = policeCars[i];
+                    if (Math.hypot(b.x - cop.x, b.y - cop.y) < 24) {
+                        cop.life--; hit = true;
+                        if (cop.life <= 0) {
+                            policeCars.splice(i, 1); AudioEngine.playCrash();
+                            score += (wantedLevel * 300); document.getElementById('score').innerText = "$" + String(score).padStart(6, '0');
+                            reportCrime(2); 
+                        }
+                        break;
+                    }
+                }
+                return !hit;
+            });
+
+            policeBullets = policeBullets.filter(pb => {
+                pb.x += pb.vx; pb.y += pb.vy; pb.range--;
+                if (checkCollision(pb.x, pb.y) || pb.range <= 0) return false;
+
+                if (Math.hypot(pb.x - activeX, pb.y - activeY) < (player.inVehicle ? 26 : 15)) {
+                    if (damageCooldown === 0) {
+                        health = Math.max(0, health - (player.inVehicle ? Math.floor(pb.damage * 0.5) : pb.damage));
+                        updateHealthUI(); damageCooldown = 14; if (health <= 0) triggerWasted();
+                    }
+                    return false;
+                }
+                return true;
+            });
+
+            peds.forEach((ped, index) => {
+                ped.changeDirTimer--;
+                if(ped.changeDirTimer <= 0) { ped.angle = Math.random() * Math.PI * 2; ped.changeDirTimer = Math.random() * 200 + 50; }
+                ped.x += Math.sin(ped.angle) * ped.speed; ped.y -= Math.cos(ped.angle) * ped.speed;
+                if (checkCollision(ped.x, ped.y)) ped.angle += Math.PI;
+                if (player.inVehicle && Math.hypot(car.x - ped.x, car.y - ped.y) < 24) {
+                    peds.splice(index, 1); score += 300; document.getElementById('score').innerText = "$" + String(score).padStart(6, '0');
+                    AudioEngine.playScream(); spawnPed(); reportCrime(2);
+                }
+            });
+
+            const config = getPoliceConfig();
+            if (wantedLevel > 0 && Math.random() < (0.007 + wantedLevel * 0.005)) spawnPolice();
+            if (damageCooldown > 0) damageCooldown--;
+
+            let activeSiren = false;
+            policeCars.forEach((cop) => {
+                let dist = Math.hypot(activeX - cop.x, activeY - cop.y);
+                let angleToPlayer = Math.atan2(activeY - cop.y, activeX - cop.x);
+                let targetAngle = angleToPlayer + Math.PI / 2;
+                let stopAndShoot = (!player.inVehicle && dist < 220);
+
+                if (stopAndShoot) {
+                    cop.currentSpeed = Math.max(0, cop.currentSpeed - 0.25); cop.angle = targetAngle;
+                    if (cop.shootCooldown > 0) cop.shootCooldown--;
+                    if (cop.shootCooldown <= 0) {
+                        AudioEngine.playGunshot();
+                        policeBullets.push({ x: cop.x, y: cop.y, vx: Math.cos(angleToPlayer) * 8.0, vy: Math.sin(angleToPlayer) * 8.0, range: 55, damage: cop.damage });
+                        cop.shootCooldown = cop.shootRate;
+                    }
+                } else { cop.currentSpeed = config.speed; }
+
+                if (cop.currentSpeed > 0) {
+                    let nextCopX = cop.x + Math.sin(targetAngle) * cop.currentSpeed;
+                    let nextCopY = cop.y - Math.cos(targetAngle) * cop.currentSpeed;
+                    if (!checkCollision(nextCopX, nextCopY)) { cop.angle = targetAngle; cop.x = nextCopX; cop.y = nextCopY; } else {
+                        let alternateAngle = targetAngle + cop.slideAngle;
+                        let escapeX = cop.x + Math.sin(alternateAngle) * cop.currentSpeed;
+                        let escapeY = cop.y - Math.cos(alternateAngle) * cop.currentSpeed;
+                        if (!checkCollision(escapeX, escapeY)) { cop.angle = alternateAngle; cop.x = escapeX; cop.y = escapeY; } else { cop.slideAngle *= -1; cop.x -= Math.sin(targetAngle) * 2; cop.y += Math.cos(targetAngle) * 2; }
+                    }
+                }
+                if(dist < 750) activeSiren = true;
+                if (dist < 28 && damageCooldown === 0) {
+                    health = Math.max(0, health - (player.inVehicle ? Math.floor(cop.damage * 0.6) : (cop.damage * 1.5)));
+                    updateHealthUI(); AudioEngine.playCrash(); damageCooldown = 35; if (health <= 0) triggerWasted();
+                }
+            });
+            AudioEngine.updateSiren(activeSiren);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+            ctx.save(); ctx.translate(-camera.x, -camera.y);
+
+            ctx.strokeStyle = "rgba(69, 243, 255, 0.02)"; ctx.lineWidth = 2;
+            for(let i=0; i<WORLD.width; i+=140){ ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, WORLD.height); ctx.stroke(); }
+            for(let j=0; j<WORLD.height; j+=140){ ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(WORLD.width, j); ctx.stroke(); }
+
+            const drawZone = (zone, fillColor, strokeColor, char) => {
+                ctx.fillStyle = fillColor; ctx.strokeStyle = strokeColor; ctx.lineWidth = 4;
+                ctx.fillRect(zone.x, zone.y, zone.width, zone.height); ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
+                ctx.fillStyle = strokeColor; ctx.font = 'bold 50px Arial'; ctx.textAlign = 'center';
+                ctx.fillText(char, zone.x + zone.width/2, zone.y + zone.height/2 + 16);
+            };
+            drawZone(safeHouse, 'rgba(46, 204, 113, 0.15)', '#2ecc71', 'F');
+            drawZone(hospital, 'rgba(231, 76, 60, 0.15)', '#e74c3c', 'H');
+            drawZone(policeStation, 'rgba(52, 152, 219, 0.18)', '#3498db', 'P');
+            drawZone(ammuNation, 'rgba(149, 165, 166, 0.22)', '#95a5a6', 'B');
+
+            ctx.fillStyle = '#1f2833';
+            for (let i = 0; i < buildings.length; i++) {
+                let b = buildings[i];
+                ctx.fillRect(b.x, b.y, b.w, b.h); ctx.strokeRect(b.x, b.y, b.w, b.h);
+                ctx.fillStyle = '#0b0c10'; ctx.fillRect(b.x + 12, b.y + 12, b.w - 24, b.h - 24);
+                ctx.fillStyle = '#1f2833';
+            }
+
+            ctx.fillStyle = '#f1c40f'; bullets.forEach(b => ctx.fillRect(b.x - 2, b.y - 2, 4, 4));
+            ctx.fillStyle = '#ff3333'; policeBullets.forEach(pb => { ctx.beginPath(); ctx.arc(pb.x, pb.y, 3, 0, Math.PI*2); ctx.fill(); });
+
+            peds.forEach(ped => {
+                ctx.save(); ctx.translate(ped.x, ped.y); ctx.rotate(ped.angle); ctx.drawImage(Sprites.pedestrian, -9, -9); ctx.restore();
+            });
+
+            ctx.save(); ctx.translate(car.x, car.y); ctx.rotate(car.angle); ctx.drawImage(Sprites.playerCar, -16, -27); ctx.restore();
+
+            if (!player.inVehicle) {
+                ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle); ctx.drawImage(Sprites.playerPed, -9, -9); ctx.restore();
+            }
+
+            policeCars.forEach(cop => {
+                ctx.save(); ctx.translate(cop.x, cop.y); ctx.rotate(cop.angle); Sprites.drawPoliceElement(ctx, cop.color, cop.isFBI); ctx.restore();
+                if (cop.life < cop.maxLife) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(cop.x - 15, cop.y - 34, 30, 4);
+                    ctx.fillStyle = '#e74c3c'; ctx.fillRect(cop.x - 15, cop.y - 34, (cop.life / cop.maxLife) * 30, 4);
+                }
+            });
+
+            ctx.restore();
+
+            let activeX = player.inVehicle ? car.x : player.x;
+            let activeY = player.inVehicle ? car.y : player.y;
+            const rSize = 130; const rX = 20; const rY = CANVAS_H - rSize - 20;
+            ctx.fillStyle = 'rgba(11, 12, 16, 0.88)'; ctx.strokeStyle = '#45f3ff'; ctx.lineWidth = 3;
+            ctx.fillRect(rX, rY, rSize, rSize); ctx.strokeRect(rX, rY, rSize, rSize);
+
+            const drawOnRadar = (worldX, worldY, color, txt = null) => {
+                let rx = rX + (worldX / WORLD.width) * rSize; let ry = rY + (worldY / WORLD.height) * rSize;
+                ctx.fillStyle = color; if(txt) { ctx.font = 'bold 11px Arial'; ctx.textAlign = 'center'; ctx.fillText(txt, rx, ry + 4); }
+                else { ctx.beginPath(); ctx.arc(rx, ry, 2.5, 0, Math.PI*2); ctx.fill(); }
+            };
+            drawOnRadar(safeHouse.x + 70, safeHouse.y + 70, '#2ecc71', 'F');
+            drawOnRadar(hospital.x + 75, hospital.y + 75, '#e74c3c', 'H');
+            drawOnRadar(policeStation.x + 90, policeStation.y + 90, '#3498db', 'P');
+            drawOnRadar(ammuNation.x + 70, ammuNation.y + 70, '#ffffff', 'B');
+            policeCars.forEach(cop => drawOnRadar(cop.x, cop.y, '#e74c3c'));
+            drawOnRadar(activeX, activeY, '#45f3ff'); 
+        }
+
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
+    </script>
+</body>
+</html>
